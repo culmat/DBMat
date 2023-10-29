@@ -45,10 +45,19 @@ import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.AbstractMap;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import javax.swing.text.DateFormatter;
 
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -194,9 +203,9 @@ public class WatchDir {
         }
     }
 
-    private void rename(Path child) throws IOException {
+    private void rename(Path child) throws IOException, ParseException {
 		if(!child.getFileName().toString().matches("\\A\\d{4}-\\d{2}-\\d{2}_.*")) {
-			String date = getDate(child);
+			String date = yyyyMMdd.format(parseFile(child).getKey());
 			Path target = child.resolveSibling(Paths.get(date+"_"+child.getFileName()));
 			System.out.println("moving to "+target);
 			Files.move(child,target);
@@ -205,7 +214,10 @@ public class WatchDir {
 		}
 	}
 	
-    public static String getDate(Path path) throws IOException {
+    public static SimpleDateFormat yyyyMMdd = new SimpleDateFormat("yyyy-MM-dd");
+    static SimpleDateFormat formatter = new SimpleDateFormat("dd.MM.yyyy");
+    
+    public static Map.Entry<Date, Double> parseFile(Path path) throws IOException, ParseException {
 		try (PDDocument document = Loader.loadPDF(path.toFile())) {
 
 			PDFTextStripper stripper = new PDFTextStripper();
@@ -216,9 +228,13 @@ public class WatchDir {
 				stripper.setEndPage(1);
 
 				String text = stripper.getText(document);			
+				Matcher priceMatcher = Pattern.compile("Summe\\s*([\\d,]+)€").matcher(text);
+				priceMatcher.find();
+				Double price = Double.parseDouble(priceMatcher.group(1).replace(',', '.'));
 				Matcher matcher = Pattern.compile("(\\d{2})\\.(\\d{2})\\.(\\d{4})").matcher(text);
 				matcher.find();
-				return String.format("%s-%s-%s", matcher.group(3),matcher.group(2),matcher.group(1));
+				Date date = formatter.parse(matcher.group());
+				return new AbstractMap.SimpleEntry<>(date, price);
 		}
     }
     
@@ -227,10 +243,10 @@ public class WatchDir {
         System.err.println("usage: java WatchDir [-r] dir");
         System.exit(-1);
     }
+    public static String path = System.getProperty("user.home")+"/Downloads/ticketsDB/";
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, ParseException {
     	
-    	String path = System.getProperty("user.home")+"/Downloads/ticketsDB/";
     	System.out.println("watching "+path);
         Path dir = Paths.get(path);
         File file = dir.toFile();
@@ -241,6 +257,11 @@ public class WatchDir {
         } else {
         	file.mkdirs();
         }
+        
+        File pdf = file.listFiles ()[0] ;
+        System.out.println(pdf);
+        
+        parseFile(pdf.toPath());
         new WatchDir(dir, false).processEvents();
     }
 }
