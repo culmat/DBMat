@@ -33,6 +33,7 @@ import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
 import static java.nio.file.StandardWatchEventKinds.ENTRY_CREATE;
 import static java.nio.file.StandardWatchEventKinds.OVERFLOW;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
@@ -228,21 +229,18 @@ public class WatchDir {
     }
 
     public static void main(String[] args) throws IOException {
-    	args = new String[] {"/home/matthi/Downloads/ticketsDB/"};
-    	// parse arguments
-        if (args.length == 0 || args.length > 2)
-            usage();
-        boolean recursive = false;
-        int dirArg = 0;
-        if (args[0].equals("-r")) {
-            if (args.length < 2)
-                usage();
-            recursive = true;
-            dirArg++;
+    	
+    	String path = System.getProperty("user.home")+"/Downloads/ticketsDB/";
+    	System.out.println("watching "+path);
+        Path dir = Paths.get(path);
+        File file = dir.toFile();
+        if(file.exists()) {
+        	int length = file.list().length;
+        	if(length > 0) 
+        		System.out.println("Ignoring "+length+" existing files.");
+        } else {
+        	file.mkdirs();
         }
-
-        // register directory and process its events
-        Path dir = Paths.get(args[dirArg]);
-        new WatchDir(dir, recursive).processEvents();
+        new WatchDir(dir, false).processEvents();
     }
 }
