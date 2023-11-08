@@ -22,15 +22,16 @@ public class Report {
 
 	public static void main(String[] args) throws Exception {
 		SortedMap<Date, TicketInfo> date2info = new TreeMap<>();
-		Files.newDirectoryStream(Paths.get(WatchDir.path)).forEach(path->{
-			try {
-				TicketInfo parsed = WatchDir.parseFile(path);
-				date2info.put(parsed.date(), parsed);
-			} catch (IOException | ParseException e) {
-				e.printStackTrace();
-			}
-		});
-		
+		try (var paths = Files.newDirectoryStream(Paths.get(WatchDir.path), "*.pdf")) {
+			paths.forEach(path -> {
+				try {
+					TicketInfo parsed = WatchDir.parseFile(path);
+					date2info.put(parsed.date(), parsed);
+				} catch (IOException | ParseException e) {
+					e.printStackTrace();
+				}
+			});
+		}
 		
 		date2info.forEach((date,info)-> {
 			int year = date.getYear()+1900;
