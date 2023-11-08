@@ -47,17 +47,11 @@ import java.nio.file.WatchService;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.AbstractMap;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import javax.swing.text.DateFormatter;
 
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -205,7 +199,7 @@ public class WatchDir {
 
     private void rename(Path child) throws IOException, ParseException {
 		if(!child.getFileName().toString().matches("\\A\\d{4}-\\d{2}-\\d{2}_.*")) {
-			String date = yyyyMMdd.format(parseFile(child).getKey());
+			String date = yyyyMMdd.format(parseFile(child).date());
 			Path target = child.resolveSibling(Paths.get(date+"_"+child.getFileName()));
 			System.out.println("moving to "+target);
 			Files.move(child,target);
@@ -217,7 +211,7 @@ public class WatchDir {
     public static SimpleDateFormat yyyyMMdd = new SimpleDateFormat("yyyy-MM-dd");
     static SimpleDateFormat formatter = new SimpleDateFormat("dd.MM.yyyy");
     
-    public static Map.Entry<Date, Double> parseFile(Path path) throws IOException, ParseException {
+    public static TicketInfo parseFile(Path path) throws IOException, ParseException {
 		try (PDDocument document = Loader.loadPDF(path.toFile())) {
 
 			PDFTextStripper stripper = new PDFTextStripper();
@@ -228,13 +222,20 @@ public class WatchDir {
 				stripper.setEndPage(1);
 
 				String text = stripper.getText(document);			
+				
 				Matcher priceMatcher = Pattern.compile("Summe\\s*([\\d,]+)€").matcher(text);
 				priceMatcher.find();
 				Double price = Double.parseDouble(priceMatcher.group(1).replace(',', '.'));
-				Matcher matcher = Pattern.compile("(\\d{2})\\.(\\d{2})\\.(\\d{4})").matcher(text);
-				matcher.find();
-				Date date = formatter.parse(matcher.group());
-				return new AbstractMap.SimpleEntry<>(date, price);
+				
+				Matcher dateMatcher = Pattern.compile("(\\d{2})\\.(\\d{2})\\.(\\d{4})").matcher(text);
+				dateMatcher.find();
+				Date date = formatter.parse(dateMatcher.group());
+				
+				Matcher auftragsNrMatcher = Pattern.compile("Auftragsnummer:\\W+(\\w+)").matcher(text);
+				auftragsNrMatcher.find();
+				String auftragsNr = auftragsNrMatcher.group(1);
+				
+				return new TicketInfo(date, auftragsNr, price);
 		}
     }
     
